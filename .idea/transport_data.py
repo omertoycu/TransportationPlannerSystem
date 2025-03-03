@@ -31,7 +31,7 @@ class CityData:
         self.taxi = taxi
         self.duraklar = duraklar
 
-def load_data(file_path: str) -> CityData:
+def load_data(file_path: str) -> Optional[CityData]:
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
