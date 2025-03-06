@@ -34,10 +34,22 @@
     fetch('/get_stops')
         .then(response => response.json())
         .then(data => {
-            data.forEach(stop => { // Değişiklik burada
+            data.forEach(stop => {
                 var marker = L.marker([stop.lat, stop.lon]).addTo(map)
                     .bindPopup(`<b>${stop.name}</b><br>Tür: ${stop.type}`);
-                stopMarkers.push(marker);
+
+                // Duraklar arasındaki bağlantıları çiz
+                if (stop.nextStops) {
+                    stop.nextStops.forEach(nextStop => {
+                        var nextStopMarker = data.find(s => s.id === nextStop.stopId);
+                        if (nextStopMarker) {
+                            L.polyline([
+                                [stop.lat, stop.lon],
+                                [nextStopMarker.lat, nextStopMarker.lon]
+                            ], {color: 'blue'}).addTo(map);
+                        }
+                    });
+                }
             });
         })
         .catch(error => console.error('Duraklar yüklenirken hata:', error));
