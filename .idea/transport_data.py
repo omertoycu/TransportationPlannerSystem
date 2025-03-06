@@ -31,17 +31,25 @@ class CityData:
         self.taxi = taxi
         self.duraklar = duraklar
 
+
+
+
 def load_data(file_path: str) -> Optional[CityData]:
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
 
+        print(f"Veri yüklendi: {data['city']}")  # Şehir adı kontrolü
+
         duraklar = []
         for durak in data['duraklar']:
             nextStops = [NextStop(**next_stop) for next_stop in durak.get('nextStops', [])]
             transfer = Transfer(**durak['transfer']) if durak['transfer'] else None
-            duraklar.append(Stop(id=durak['id'], name=durak['name'], type=durak['type'], lat=durak['lat'], lon=durak['lon'], sonDurak=durak['sonDurak'], nextStops=nextStops, transfer=transfer))
+            duraklar.append(
+                Stop(id=durak['id'], name=durak['name'], type=durak['type'], lat=durak['lat'], lon=durak['lon'],
+                     sonDurak=durak['sonDurak'], nextStops=nextStops, transfer=transfer))
 
+        print(f"Duraklar yüklendi: {len(duraklar)}")  # Durak sayısını kontrol et
         return CityData(city=data['city'], taxi=data['taxi'], duraklar=duraklar)
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}")
