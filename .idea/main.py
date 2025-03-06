@@ -1,47 +1,27 @@
-import os
-import webbrowser
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-from transport_data import load_data
-from transport_system import Location, StudentPassenger, Bus, Tram, Taxi
-from map_system import MapSystem, MapVisualizer, RouteFinder
+from flask import Flask, render_template, request, jsonify
+import json
 
-def main():
-    # Veriyi yükle
-    file_path = "data.txt"
-    city_data = load_data(file_path)
-    if city_data is None:
-        print("Failed to load city data.")
-        return
+app = Flask(__name__)
 
-    map_system = MapSystem()
-    for stop in city_data.duraklar:
-        map_system.add_stop(stop)
-        for next_stop in stop.nextStops:
-            map_system.add_route(stop.id, next_stop.stopId, next_stop.mesafe, next_stop.sure, next_stop.ucret)
+def load_data():
+    with open("data.txt", "r", encoding="utf-8") as file:
+        return json.load(file)
 
-    start_location = Location(40.7638, 29.9406)
-    end_location = Location(40.7760, 29.9495)
-    passenger = StudentPassenger("Ali")
+data = load_data()
 
-    taxi = Taxi("TX1", city_data.taxi['openingFee'], city_data.taxi['costPerKm'])
-    transport_modes = [Bus("B1"), Tram("T1"), taxi]
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-    route = RouteFinder.find_route(start_location, end_location, map_system)
-    print(route)
-    MapVisualizer.visualize(map_system)
+@app.route("/get_stops", methods=["GET"])
+def get_stops():
+    return jsonify(data["duraklar"])
 
-    # Harita dosyasını sunmak için bir HTTP sunucusu başlat
-    PORT = 8000
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    server_address = ("", PORT)
-    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
-
-    # Varsayılan web tarayıcısında harita dosyasını aç
-    webbrowser.open(f"http://localhost:{PORT}/transport_map.html")
-
-    # Sunucuyu başlat
-    print(f"Sunucu {PORT} portunda çalışıyor...")
-    httpd.serve_forever()
+@app.route("/process_coordinates", methods=["POST"])
+def process_coordinates():
+    coords = request.json
+    print(f"Mevcut Konum: {coords['start']}, Hedef Konum: {coords['end']}")
+    return jsonify({"message": "Koordinatlar alındı!"})
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
