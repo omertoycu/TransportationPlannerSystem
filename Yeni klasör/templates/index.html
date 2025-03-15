@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kocaeli Ulaşım Rota Planlayıcı</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.6.0/leaflet.polylineDecorator.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Roboto', sans-serif;
+      }
+
+      body {
+        background-color: #121212;
+        color: #e0e0e0;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        height: calc(100vh - 80px); /* Header yüksekliğini çıkar */
+      }
+
+      .header {
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+        color: #e0e0e0;
+        padding: 20px 0;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      }
+
+      .header h1 {
+        font-size: 28px;
+        font-weight: 500;
+        text-align: center;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 25px;
+        background: #1e1e1e;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        overflow: hidden;
+        padding: 20px;
+        height: 100%;
+      }
+
+      .sidebar {
+        background: #1e1e1e;
+        padding: 20px;
+        border-right: 2px solid #333;
+        border-radius: 8px;
+        overflow-y: auto;
+        height: 100%;
+      }
+
+      #map {
+        position: sticky;
+        top: 20px;
+        height: calc(100vh - 120px);
+        width: 100%;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      }
+
+      .controls {
+        margin-bottom: 20px;
+      }
+
+      .controls h3 {
+        color: #1e88e5;
+        margin-bottom: 15px;
+        font-size: 18px;
+        font-weight: 500;
+      }
+
+      .passenger-info, .payment-info, .coordinates, .route-alternatives {
+        background: #2d2d2d;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+      }
+
+      .form-group {
+        margin-bottom: 12px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #e0e0e0;
+        font-size: 14px;
+      }
+
+      select, input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #444;
+        border-radius: 4px;
+        font-size: 14px;
+        background: #333;
+        color: #e0e0e0;
+      }
+
+      select:focus, input:focus {
+        outline: none;
+        border-color: #1e88e5;
+      }
+
+      .coordinates p {
+        font-size: 14px;
+        color: #bdbdbd;
+        margin-bottom: 8px;
+      }
+
+      .coordinates span {
+        color: #1e88e5;
+        font-weight: 500;
+      }
+
+      .route-info {
+        background: #2d2d2d;
+        border-radius: 8px;
+        margin-top: 15px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .route-step {
+        padding: 15px;
+        border-left: 4px solid;
+        margin: 10px;
+        background: #333;
+        border-radius: 8px;
+        color: #e0e0e0;
+        transition: all 0.3s ease;
+      }
+
+      .route-step:hover {
+        transform: translateX(5px);
+        background: #404040;
+      }
+
+      .route-step b {
+        color: #1e88e5;
+      }
+
+      .button-group {
+        margin-top: 15px;
+        text-align: center;
+        display: flex;
+        gap: 10px;
+      }
+
+      .reset-button {
+        background: #d32f2f;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.3s;
+        flex: 1;
+      }
+
+      .calculate-button {
+        background: #1e88e5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.3s;
+        flex: 1;
+      }
+
+      .reset-button:hover {
+        background: #b71c1c;
+      }
+
+      .calculate-button:hover {
+        background: #1565c0;
+      }
+
+      .route-alternatives {
+        margin-top: 15px;
+      }
+
+      .route-option {
+        padding: 15px;
+        margin: 10px 0;
+        background: #333;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid #444;
+      }
+
+      .route-option:hover {
+        transform: translateY(-2px);
+        background: #404040;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      }
+
+      .route-option.selected {
+        border-color: #1e88e5;
+        background: #404040;
+        box-shadow: 0 0 0 2px rgba(30,136,229,0.3);
+      }
+
+      .route-option-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .route-option-title {
+        font-weight: 500;
+        color: #e0e0e0;
+      }
+
+      .route-option-stats {
+        font-size: 12px;
+        color: #bdbdbd;
+      }
+
+      /* Scrollbar stilleri */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #333;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #666;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #888;
+      }
+
+      .marker-icon {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        border: 3px solid;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+      }
+
+      .marker-icon:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+      }
+
+      .custom-div-icon {
+        background: none;
+        border: none;
+      }
+
+      /* Popup stilleri */
+      .leaflet-popup-content-wrapper {
+        background: #333;
+        color: #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      }
+
+      .leaflet-popup-tip {
+        background: #333;
+      }
+
+      .popup-content {
+        padding: 10px;
+      }
+
+      .popup-content h4 {
+        color: #1e88e5;
+        margin-bottom: 8px;
+        font-size: 16px;
+      }
+
+      .popup-content p {
+        margin: 5px 0;
+        font-size: 14px;
+      }
+
+      .success-message {
+        transition: opacity 1s ease-in-out;
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Kocaeli Ulaşım Rota Planlayıcı</h1>
+    </div>
+    <div class="container">
+      <div class="content">
+        <div class="sidebar">
+          <div class="controls">
+            <div class="passenger-info">
+              <h3>Yolcu Bilgileri</h3>
+              <div class="form-group">
+                <label for="passengerType">Yolcu Tipi:</label>
+                <select id="passengerType">
+                  <option value="Genel">Genel</option>
+                  <option value="Ogrenci">Öğrenci</option>
+                  <option value="Ogretmen">Öğretmen</option>
+                  <option value="65+">65+</option>
+                </select>
+              </div>
+            </div>
+            <div class="payment-info">
+              <h3>Ödeme Bilgileri</h3>
+              <div class="form-group">
+                <label for="cash">Nakit (TL):</label>
+                <input type="number" id="cash" value="0" min="0">
+              </div>
+              <div class="form-group">
+                <label for="creditCard">Kredi Kartı Limiti (TL):</label>
+                <input type="number" id="creditCard" value="0" min="0">
+              </div>
+              <div class="form-group">
+                <label for="kentkart">KentKart Bakiye (TL):</label>
+                <input type="number" id="kentkart" value="0" min="0">
+              </div>
+            </div>
+          </div>
+          <div class="coordinates">
+            <h3>Seçilen Konumlar</h3>
+            <p><b>Başlangıç:</b> <span id="start">Seçilmedi</span></p>
+            <p><b>Hedef:</b> <span id="end">Seçilmedi</span></p>
+            <div class="button-group">
+              <button class="reset-button" onclick="resetRoute()">Rotayı Sıfırla</button>
+              <button class="calculate-button" onclick="calculateAllRoutes()">Tüm Rotaları Hesapla</button>
+            </div>
+          </div>
+          <div class="route-alternatives">
+            <h3>Alternatif Rotalar</h3>
+            <div id="routeOptions"></div>
+          </div>
+          <div id="routeInfo" class="route-info"></div>
+        </div>
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.6.0/leaflet.polylineDecorator.min.js"></script>
+    <script>
+      // Harita başlangıç ayarları
+      var map = L.map("map", {
+        center: [40.7762, 29.9484],
+        zoom: 12,
+        zoomControl: false
+      });
+
+      // Özel harita stil
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Zoom kontrolünü sağ tarafa al
+      L.control.zoom({
+        position: 'topright'
+      }).addTo(map);
+
+      var startMarker = null, endMarker = null;
+      var startCoords = null, endCoords = null;
+      var routeLayer = L.layerGroup().addTo(map);
+      var stopsLayer = L.layerGroup().addTo(map);
+      var markersLayer = L.layerGroup().addTo(map);
+
+      function getColorForMode(mode) {
+        const colors = {
+          'Taksi': '#FFB300',
+          'Yürüme': '#9E9E9E',
+          'Bus': '#42A5F5',
+          'Tram': '#EF5350',
+          'Aktarma': '#AB47BC'
+        };
+        return colors[mode] || '#000000';
+      }
+
+      function createCustomIcon(color, text, size = 30) {
+        const style = `
+          width: ${size}px;
+          height: ${size}px;
+          background-color: ${color};
+          border-color: ${color};
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          border: 3px solid;
+          color: white;
+          font-weight: bold;
+          font-size: ${size * 0.45}px;
+          transition: all 0.3s ease;
+        `;
+
+        return L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div class="marker-icon" style="${style}">${text}</div>`,
+          iconSize: [size, size],
+          iconAnchor: [size/2, size/2]
+        });
+      }
+
+      function loadStops() {
+        stopsLayer.clearLayers();
+        
+        fetch("/get_stops")
+          .then(response => response.json())
+          .then(data => {
+            data.forEach(stop => {
+              const color = stop.type === 'bus' ? '#42A5F5' : '#EF5350';
+              const icon = createCustomIcon(color, stop.type === 'bus' ? 'B' : 'T', 24);
+              
+              L.marker([stop.lat, stop.lon], { icon: icon })
+                .addTo(stopsLayer)
+                .bindPopup(`
+                  <div class="popup-content">
+                    <h4>${stop.name}</h4>
+                    <p><b>Tür:</b> ${stop.type === 'bus' ? 'Otobüs' : 'Tramvay'}</p>
+                    ${stop.sonDurak ? '<p style="color: #EF5350;"><b>Son Durak</b></p>' : ''}
+                  </div>
+                `);
+            });
+          })
+          .catch(error => console.error("Duraklar yüklenirken hata:", error));
+      }
+
+      function resetRoute() {
+        if (startMarker) map.removeLayer(startMarker);
+        if (endMarker) map.removeLayer(endMarker);
+        routeLayer.clearLayers();
+        markersLayer.clearLayers();
+        stopsLayer.clearLayers();
+        startMarker = null;
+        endMarker = null;
+        startCoords = null;
+        endCoords = null;
+        document.getElementById("start").innerText = "Seçilmedi";
+        document.getElementById("end").innerText = "Seçilmedi";
+        document.getElementById("routeInfo").innerHTML = "";
+        loadStops();
+      }
+
+      function drawRoute(route) {
+        routeLayer.clearLayers();
+        markersLayer.clearLayers();
+
+        if (!route || !route.steps) {
+          console.error("Geçersiz rota verisi");
+          return;
+        }
+
+        // Başlangıç ve bitiş noktaları için ikonlar
+        const startIcon = createCustomIcon('#42A5F5', 'B'); // Başlangıç için mavi
+        const endIcon = createCustomIcon('#EF5350', 'H');   // Hedef için kırmızı
+        
+        const firstStep = route.steps[0];
+        const lastStep = route.steps[route.steps.length - 1];
+        
+        startMarker = L.marker([firstStep.from.lat, firstStep.from.lng], {icon: startIcon}).addTo(markersLayer);
+        endMarker = L.marker([lastStep.to.lat, lastStep.to.lng], {icon: endIcon}).addTo(markersLayer);
+        
+        let routeInfo = '<h3 style="padding: 12px; color: #42A5F5;">Rota Detayları</h3>';
+        let allCoords = [];
+        
+        // Önce tüm durakları sırala
+        let sortedStops = [];
+        if (route.stops) {
+          sortedStops = route.stops.map((stop, index) => ({
+            ...stop,
+            order: index + 1
+          }));
+        }
+
+        // Rotayı çiz ve durakları işaretle
+        route.steps.forEach((step, index) => {
+          const color = getColorForMode(step.mode);
+          const coords = [
+            [step.from.lat, step.from.lng],
+            [step.to.lat, step.to.lng]
+          ];
+          
+          let polyline = L.polyline(coords, {
+            color: color,
+            weight: step.mode === 'Aktarma' ? 3 : 5,
+            dashArray: step.mode === 'Aktarma' ? '10, 10' : null,
+            opacity: 0.8
+          }).addTo(routeLayer);
+          
+          polyline.bindPopup(`
+            <div style="padding: 10px;">
+              <h4 style="color: ${color}; margin-bottom: 5px;">${step.mode}</h4>
+              <p>${step.info}</p>
+            </div>
+          `);
+          
+          routeInfo += `
+            <div class="route-step" style="border-left-color: ${color}">
+              <b>${index + 1}. ${step.mode}</b><br>
+              ${step.info}<br>
+              <span style="color: #bdbdbd;">Ücret: ${step.cost} TL • Süre: ${step.time} dk</span>
+            </div>
+          `;
+          
+          allCoords = allCoords.concat(coords);
+        });
+        
+        // Sıralı durakları işaretle
+        if (sortedStops.length > 0) {
+          sortedStops.forEach((stop, index) => {
+            const color = stop.type === 'bus' ? '#42A5F5' : '#EF5350';
+            const icon = createCustomIcon(color, (index + 1).toString());
+            
+            L.marker([stop.lat, stop.lon], {icon: icon})
+              .bindPopup(`
+                <div style="padding: 10px;">
+                  <h4 style="color: ${color}; margin-bottom: 5px;">${stop.name}</h4>
+                  <p>Durak ${index + 1}</p>
+                  <p>Tür: ${stop.type === 'bus' ? 'Otobüs' : 'Tramvay'}</p>
+                </div>
+              `)
+              .addTo(markersLayer);
+          });
+
+          // Duraklar listesini rota detaylarına ekle
+          routeInfo += '<div style="padding: 12px; margin-top: 15px;"><h4 style="color: #42A5F5; margin-bottom: 10px;">Duraklar</h4>';
+          sortedStops.forEach((stop, index) => {
+            const color = stop.type === 'bus' ? '#42A5F5' : '#EF5350';
+            routeInfo += `
+              <div class="route-step" style="border-left-color: ${color}">
+                <b>${index + 1}. ${stop.name}</b><br>
+                <span style="color: #bdbdbd;">Tür: ${stop.type === 'bus' ? 'Otobüs' : 'Tramvay'}</span>
+              </div>
+            `;
+          });
+          routeInfo += '</div>';
+        }
+        
+        document.getElementById("routeInfo").innerHTML = routeInfo;
+        
+        if (allCoords.length > 0) {
+          const bounds = L.latLngBounds(allCoords);
+          map.fitBounds(bounds, {padding: [50, 50]});
+        }
+      }
+
+      map.on("click", function(e) {
+        if (!startCoords) {
+          startCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+          if (startMarker) map.removeLayer(startMarker);
+          startMarker = L.marker(e.latlng, {
+            icon: createCustomIcon('#4CAF50', 'B')
+          })
+            .addTo(markersLayer)
+            .bindPopup("Başlangıç Noktası")
+            .openPopup();
+          document.getElementById("start").innerText =
+            startCoords.lat.toFixed(5) + ", " + startCoords.lng.toFixed(5);
+        } else if (!endCoords) {
+          endCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+          if (endMarker) map.removeLayer(endMarker);
+          endMarker = L.marker(e.latlng, {
+            icon: createCustomIcon('#F44336', 'H')
+          })
+            .addTo(markersLayer)
+            .bindPopup("Hedef Noktası")
+            .openPopup();
+          document.getElementById("end").innerText =
+            endCoords.lat.toFixed(5) + ", " + endCoords.lng.toFixed(5);
+          
+          // Otomatik olarak tüm rotaları hesapla
+          calculateAllRoutes();
+        } else {
+          // Üçüncü tıklamada rotayı sıfırla
+          resetRoute();
+          routeLayer.clearLayers();
+          document.getElementById('routeOptions').innerHTML = '';
+        }
+      });
+
+      function calculateAllRoutes() {
+        if (!startCoords || !endCoords) {
+          alert("Lütfen başlangıç ve hedef noktalarını seçin.");
+          return;
+        }
+
+        fetch("/process_coordinates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            start: startCoords,
+            end: endCoords,
+            passengerType: document.getElementById('passengerType').value,
+            paymentInfo: {
+              cash: parseFloat(document.getElementById('cash').value) || 0,
+              creditCard: parseFloat(document.getElementById('creditCard').value) || 0,
+              kentkart: parseFloat(document.getElementById('kentkart').value) || 0
+            }
+          })
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.error) {
+              alert(data.error);
+              return;
+            }
+
+            const routeOptions = document.getElementById('routeOptions');
+            routeOptions.innerHTML = '';
+
+            // Rota tiplerinin Türkçe karşılıkları
+            const typeNames = {
+              'bus_only': "Sadece Otobüs",
+              'tram_only': "Sadece Tramvay",
+              'mixed': "Otobüs + Tramvay",
+              'taxi_mixed': "Taksi + Toplu Taşıma",
+              'taxi_only': "Sadece Taksi",
+              'walking': "Yürüme"
+            };
+
+            // Her rotayı listele
+            data.routes.forEach(route => {
+              const option = document.createElement('div');
+              option.className = 'route-option';
+              option.onclick = () => selectRoute(route);
+
+              option.innerHTML = `
+                <div class="route-option-header">
+                  <div class="route-option-title">${typeNames[route.type] || route.type}</div>
+                  <div class="route-option-stats">
+                    ${route.total_cost.toFixed(2)} TL • ${route.total_time} dk
+                  </div>
+                </div>
+                <div class="route-option-stats">
+                  Toplam Mesafe: ${route.total_distance.toFixed(2)} km
+                </div>
+              `;
+
+              routeOptions.appendChild(option);
+            });
+
+            // İlk rotayı otomatik seç ve göster
+            if (data.routes.length > 0) {
+              const firstOption = routeOptions.querySelector('.route-option');
+              if (firstOption) {
+                firstOption.click();
+              }
+            }
+          })
+          .catch(error => {
+            console.error("Hata:", error);
+            alert("Rotalar hesaplanırken bir hata oluştu.");
+          });
+      }
+
+      function selectRoute(route) {
+        // Seçili rotayı vurgula
+        document.querySelectorAll('.route-option').forEach(opt => opt.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+
+        // Rotayı çiz
+        drawRoute(route);
+
+        // Rota detaylarını göster
+        const routeInfo = document.getElementById('routeInfo');
+        
+        // En yakın durak bilgisini hazırla
+        let nearestStopInfo = '';
+        if (route.steps[0].mode === "Yürüme") {
+          const destinationStop = route.steps[0].to.name || route.steps[0].info.split(" → ")[1];
+          nearestStopInfo = `<p>🚶 ${destinationStop}'a ${(route.steps[0].distance * 1000).toFixed(0)} metre yürüyüş (${route.steps[0].time} dakika)</p>`;
+        } else {
+          nearestStopInfo = '<p>🚏 Doğrudan duraktan başlıyor</p>';
+        }
+        
+        let routeSummary = `
+          <div style="background: #2d2d2d; padding: 20px; border-radius: 8px; margin-top: 15px;">
+            <h3 style="color: #4CAF50; margin-bottom: 15px;">🗺️ Rota Özeti</h3>
+            
+            <div style="margin-bottom: 15px;">
+              <h4 style="color: #1e88e5;">📍 Başlangıç Noktasına En Yakın Durak:</h4>
+              ${nearestStopInfo}
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <h4 style="color: #1e88e5;">🚏 Rota Detayları:</h4>
+              ${route.steps.map((step, index) => `
+                <div style="margin: 10px 0; padding: 10px; background: #333; border-radius: 5px;">
+                  ${index + 1}⃣ ${step.info}<br>
+                  ${step.mode === "Bus" ? "🚌" : step.mode === "Tram" ? "🚋" : step.mode === "Taksi" ? "🚕" : step.mode === "Yürüme" ? "🚶" : "🔄"} ${step.mode}<br>
+                  ⏳ Süre: ${step.time} dk<br>
+                  💰 Ücret: ${step.cost.toFixed(2)} TL
+                </div>
+              `).join('')}
+            </div>
+
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444;">
+              <h4 style="color: #1e88e5;">📊 Toplam:</h4>
+              <p>💰 Toplam Ücret: ${route.total_cost.toFixed(2)} TL</p>
+              <p>⏳ Toplam Süre: ${route.total_time} dk</p>
+              <p>📏 Toplam Mesafe: ${route.total_distance.toFixed(2)} km</p>
+            </div>
+
+            <button onclick="confirmRoute(${JSON.stringify(route).replace(/"/g, '&quot;')})" 
+                    style="width: 100%; margin-top: 20px; padding: 12px; 
+                           background: #4CAF50; color: white; border: none; 
+                           border-radius: 5px; cursor: pointer; font-size: 16px;">
+              🎫 Rotayı Seç ve Ödeme Yap
+            </button>
+          </div>
+        `;
+
+        routeInfo.innerHTML = routeSummary;
+      }
+
+      function confirmRoute(route) {
+        // Mevcut bakiyeleri al
+        const kentkartBalance = parseFloat(document.getElementById('kentkart').value) || 0;
+        const cashBalance = parseFloat(document.getElementById('cash').value) || 0;
+        const creditCardBalance = parseFloat(document.getElementById('creditCard').value) || 0;
+
+        // Maliyetleri hesapla
+        const steps = route.steps;
+        let transitCost = 0;
+        let taxiCost = 0;
+
+        steps.forEach(step => {
+          if (step.mode === "Taksi") {
+            taxiCost += step.cost;
+          } else if (step.mode === "Bus" || step.mode === "Tram") {
+            transitCost += step.cost;
+          }
+        });
+
+        // Ödeme kontrolü
+        let canPayTransit = false;
+        let canPayTaxi = false;
+        let errorMessage = "";
+
+        // Toplu taşıma ödemesi kontrolü (KentKart veya Kredi Kartı)
+        if (transitCost > 0) {
+          if (kentkartBalance >= transitCost) {
+            canPayTransit = true;
+          } else if (creditCardBalance >= transitCost) {
+            canPayTransit = true;
+          } else {
+            errorMessage += "Toplu taşıma için yeterli bakiye yok (KentKart veya Kredi Kartı). ";
+          }
+        } else {
+          canPayTransit = true;
+        }
+
+        // Taksi ödemesi kontrolü (Nakit veya Kredi Kartı)
+        if (taxiCost > 0) {
+          if (cashBalance >= taxiCost) {
+            canPayTaxi = true;
+          } else if (creditCardBalance >= (transitCost + taxiCost)) {
+            canPayTaxi = true;
+          } else {
+            errorMessage += "Taksi için yeterli bakiye yok (Nakit veya Kredi Kartı).";
+          }
+        } else {
+          canPayTaxi = true;
+        }
+
+        // Eğer ödeme yapılamıyorsa, hata mesajı göster
+        if (!canPayTransit || !canPayTaxi) {
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error-message';
+          errorDiv.innerHTML = `
+            <div style="background-color: #f44336; color: white; padding: 15px; border-radius: 5px; margin-top: 10px; text-align: center;">
+              <h3 style="margin: 0;">❌ Bakiye Yetersiz!</h3>
+              <p style="margin: 10px 0 0 0;">${errorMessage}</p>
+            </div>
+          `;
+
+          document.getElementById('routeInfo').appendChild(errorDiv);
+          return;
+        }
+
+        // Bakiyeleri güncelle
+        const kentkartInput = document.getElementById('kentkart');
+        const cashInput = document.getElementById('cash');
+        const creditCardInput = document.getElementById('creditCard');
+
+        // Toplu taşıma ödemesi
+        if (transitCost > 0) {
+          if (kentkartBalance >= transitCost) {
+            kentkartInput.value = (kentkartBalance - transitCost).toFixed(2);
+          } else {
+            creditCardInput.value = (creditCardBalance - transitCost).toFixed(2);
+          }
+        }
+
+        // Taksi ödemesi
+        if (taxiCost > 0) {
+          if (cashBalance >= taxiCost) {
+            cashInput.value = (cashBalance - taxiCost).toFixed(2);
+          } else {
+            const remainingCreditCard = parseFloat(creditCardInput.value);
+            creditCardInput.value = (remainingCreditCard - taxiCost).toFixed(2);
+          }
+        }
+
+        // Başarılı mesajı göster
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.innerHTML = `
+          <div style="background: #2d2d2d; padding: 20px; border-radius: 8px; margin-top: 15px;">
+            <div style="background-color: #4CAF50; color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;">
+              <h3 style="margin: 0;">🎉 Keyifli yolculuklar!</h3>
+              <p style="margin: 10px 0;">İyi yolculuklar dileriz!</p>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <h4 style="color: #1e88e5;">💳 Ödeme Detayları:</h4>
+              ${transitCost > 0 ? `<p>🚌 Toplu Taşıma: ${transitCost.toFixed(2)} TL</p>` : ''}
+              ${taxiCost > 0 ? `<p>🚕 Taksi: ${taxiCost.toFixed(2)} TL</p>` : ''}
+              <p style="font-size: 18px; margin-top: 10px;">💰 Toplam: ${route.total_cost.toFixed(2)} TL</p>
+            </div>
+
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444;">
+              <h4 style="color: #1e88e5;">🎫 Kalan Bakiyeler:</h4>
+              <p>💳 KentKart: ${kentkartInput.value} TL</p>
+              <p>💵 Nakit: ${cashInput.value} TL</p>
+              <p>💳 Kredi Kartı: ${creditCardInput.value} TL</p>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('routeInfo').innerHTML = '';
+        document.getElementById('routeInfo').appendChild(successDiv);
+      }
+
+      loadStops();
+    </script>
+  </body>
+</html>
